@@ -1,0 +1,19 @@
+# VS Code
+.vscode/
+
+# IntelliJ
+.idea/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Environment files
+.env
+
+# Generated Docker artifacts
+docker/ride-connect/*.jar

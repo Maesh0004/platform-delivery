@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ride-connect-ingress
+  namespace: ride-connect
+  
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /ride-connect
+            pathType: Prefix
+            backend:
+              service:
+                name: ride-connect-service
+                port:
+                  number: 8081
