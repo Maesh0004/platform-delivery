@@ -9,7 +9,7 @@ pipeline {
         IMAGE_NAME = "ride-connect"
 
         NAMESPACE = "ride-connect"
-        DEPLOYMENT = "ride-connect"
+        DEPLOYMENT = "ride-connect-deployment"
     }
 
     stages {
@@ -57,25 +57,65 @@ pipeline {
                     usernameVariable: 'DOCKER_USER',
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
-                    sh "./jenkins/scripts/push-image.sh ${REGISTRY} ${IMAGE_NAME}"
+                    sh "./jenkins/scripts/push-image.sh ${REGISTRY} ${IMAGE_NAME} ${BUILD_NUMBER}"
+                }
+            }
+        }
+
+        stage("Provision Namespace") {
+            steps {
+                sh "kubectl apply -f k8s/namespace.yaml"
+            }
+        }
+
+        stage("Apply ConfigMap") {
+            steps {
+                sh "kubectl apply -f k8s/ride-connect-configmap.yaml"
+            }
+        }
+
+        stage("Create DB Secret") {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'mysql-creds',
+                    usernameVariable: 'DB_USER',
+                    passwordVariable: 'DB_PASS'
+                )]) {
+                    sh "./jenkins/scripts/create-db-secret.sh ${NAMESPACE}"
+                }
+            }
+        }
+
+        stage("Create Docker Pull Secret") {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-creds',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh "./jenkins/scripts/create-docker-secret.sh ${NAMESPACE}"
                 }
             }
         }
 
         stage("Deploy to Kubernetes") {
             steps {
-                sh "./jenkins/scripts/deploy.sh ${NAMESPACE} ${DEPLOYMENT} ${BUILD_NUMBER}"
+                sh "./jenkins/scripts/deploy.sh ${NAMESPACE} ${DEPLOYMENT} ${REGISTRY} ${IMAGE_NAME} ${BUILD_NUMBER}"
             }
         }
     }
 
     post {
+
         success {
             echo "Deployment Successful"
         }
 
         failure {
             echo "Deployment Failed"
+
+            sh "kubectl get pods -n ${NAMESPACE}"
+            sh "kubectl describe pods -n ${NAMESPACE}"
         }
 
         always {

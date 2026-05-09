@@ -26,11 +26,16 @@ spec:
     spec:
       containers:
         - name: ride-connect
-          image: maesh0004/springboot-app:IMAGE_TAG
+          image: maesh0004/ride-connect
           imagePullPolicy: Always
 
           ports:
             - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: ride-connect-configmap
+            - secretRef:
+                name: ride-connect-secret
 
       imagePullSecrets:
         - name: dockerhub-secret

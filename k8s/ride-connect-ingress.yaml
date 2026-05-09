@@ -3,12 +3,13 @@ kind: Ingress
 metadata:
   name: ride-connect-ingress
   namespace: ride-connect
-  
+
 spec:
+  ingressClassName: nginx
   rules:
     - http:
         paths:
-          - path: /ride-connect
+          - path: /
             pathType: Prefix
             backend:
               service:
