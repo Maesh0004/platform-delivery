@@ -6,7 +6,9 @@ metadata:
 
 spec:
   ingressClassName: nginx
+
   rules:
+  #   - host: rideconnect.local
     - http:
         paths:
           - path: /

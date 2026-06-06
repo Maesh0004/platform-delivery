@@ -74,15 +74,21 @@ pipeline {
             }
         }
 
-        stage("Create DB Secret") {
+       stage("Create DB Secret") {
             steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'mysql-creds',
-                    usernameVariable: 'DB_USER',
-                    passwordVariable: 'DB_PASS'
-                )]) {
-                    sh "./jenkins/scripts/create-db-secret.sh ${NAMESPACE}"
-                }
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'mysql-creds',
+                        usernameVariable: 'DB_USER',
+                        passwordVariable: 'DB_PASS'
+                    ),
+                    string(
+                        credentialsId: 'mysql-root-password',
+                        variable: 'MYSQL_ROOT_PASSWORD'
+                    )
+                ]) {
+                sh "./jenkins/scripts/create-db-secret.sh ${NAMESPACE}"
+                }   
             }
         }
 

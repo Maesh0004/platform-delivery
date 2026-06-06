@@ -12,6 +12,9 @@ echo "Deploying Kubernetes manifests..."
 kubectl apply -f k8s/ride-connect-deployment.yaml -n $NAMESPACE
 kubectl apply -f k8s/ride-connect-service.yaml -n $NAMESPACE
 kubectl apply -f k8s/ride-connect-ingress.yaml -n $NAMESPACE
+kubectl apply -f k8s/mysql-statefulset.yaml -n $NAMESPACE
+kubectl apply -f k8s/mysql-service.yaml -n $NAMESPACE
+
 
 echo "Updating deployment image..."
 
