@@ -8,13 +8,13 @@ spec:
   ingressClassName: nginx
 
   rules:
-  #   - host: rideconnect.local
-    - http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: ride-connect-service
-                port:
-                  number: 8081
+  - host: rideconnect.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: ride-connect-service
+            port:
+              number: 8080

@@ -1,13 +1,13 @@
 #!/bin/bash
+set -euo pipefail
 
 NAMESPACE=$1
 
 # Application Secret
-
 kubectl create secret generic ride-connect-secret \
-  --from-literal=SPRING_DATASOURCE_USERNAME=$DB_USER \
-  --from-literal=SPRING_DATASOURCE_PASSWORD=$DB_PASS \
-  -n $NAMESPACE \
+  --from-literal=SPRING_DATASOURCE_USERNAME="$DB_USER" \
+  --from-literal=SPRING_DATASOURCE_PASSWORD="$DB_PASS" \
+  -n "$NAMESPACE" \
   --dry-run=client -o yaml | kubectl apply -f -
 
 # MySQL Secret

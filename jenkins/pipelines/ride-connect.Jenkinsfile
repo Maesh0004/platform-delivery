@@ -1,6 +1,11 @@
 pipeline {
 
-    agent { label 'ub22-agent' }
+    agent { label 'jenkins-agent-01' }
+
+    tools {
+        jdk 'jdk-21'
+        maven 'maven-3.9.16'
+    }
 
     environment {
         APP_REPO = "https://github.com/Maesh0004/RideConnect.git"
@@ -27,7 +32,7 @@ pipeline {
         stage("Build Application") {
             steps {
                 dir("RideConnect") {
-                    sh "mvn clean package -DskipTests"
+                    sh "mvn clean package"
                 }
             }
         }
@@ -74,7 +79,7 @@ pipeline {
             }
         }
 
-       stage("Create DB Secret") {
+        stage("Create DB Secret") {
             steps {
                 withCredentials([
                     usernamePassword(
@@ -87,8 +92,8 @@ pipeline {
                         variable: 'MYSQL_ROOT_PASSWORD'
                     )
                 ]) {
-                sh "./jenkins/scripts/create-db-secret.sh ${NAMESPACE}"
-                }   
+                    sh "./jenkins/scripts/create-db-secret.sh ${NAMESPACE}"
+                }
             }
         }
 
@@ -119,9 +124,8 @@ pipeline {
 
         failure {
             echo "Deployment Failed"
-
             sh "kubectl get pods -n ${NAMESPACE}"
-            sh "kubectl describe pods -n ${NAMESPACE}"
+            sh "kubectl get events -n ${NAMESPACE} --sort-by=.lastTimestamp"
         }
 
         always {

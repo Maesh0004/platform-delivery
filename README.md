@@ -1,185 +1,175 @@
-# Ride Connect - Kubernetes CI/CD Platform
+# Platform Delivery
 
-A production-style CI/CD platform demonstrating automated build, containerization, and Kubernetes deployment using Jenkins, Docker, and Kubernetes.
+A DevOps project that automates the build and deployment of a Java application using **Jenkins, Docker, and Kubernetes**.
 
-This project follows a **hybrid CI/CD architecture** where the application code resides in a separate repository and this repository handles all deployment automation and infrastructure orchestration.
+The pipeline builds the application, creates a Docker image, pushes it to Docker Hub, and deploys it to a Kubernetes cluster.
 
----
+## Project Overview
 
-## Tech Stack
+This project covers a basic CI/CD workflow:
 
-- **CI/CD**: Jenkins (Declarative Pipeline)
-- **Build Tool**: Maven
-- **Containerization**: Docker (OpenJDK 17 base image)
-- **Orchestration**: Kubernetes (kubeadm cluster)
-- **Registry**: Docker Hub
-- **Configuration Management**: Kubernetes ConfigMaps & Secrets
-- **Deployment Strategy**: Rolling Updates (Zero Downtime)
+* Build the application with Maven
+* Create a Docker image
+* Push the image to Docker Hub
+* Create Kubernetes configuration and secrets
+* Deploy the application to Kubernetes
+* Deploy MySQL with persistent storage
+* Check the deployment status
 
----
+## Architecture
 
-##  Architecture Overview
+```text
+Java Application
+       │
+       ▼
+    Jenkins
+       │
+       ├── Maven Build
+       ├── Docker Build
+       ├── Push Image
+       └── Kubernetes Deploy
+                │
+                ▼
+        Kubernetes Cluster
+                │
+        ┌───────┴───────┐
+        │               │
+   Application        MySQL
+        │               │
+   Deployment      StatefulSet
+        │               │
+     Service           PVC
+        │
+     Ingress
+```
 
-GitHub (Application Repository)
-        ↓
-Jenkins (Platform Delivery Repository)
-        ↓
-Maven Build (Artifact Generation)
-        ↓
-Docker Build (Tagged Image - BUILD_NUMBER)
-        ↓
-Docker Hub Registry
-        ↓
-Kubernetes Cluster (kubeadm)
-        ↓
-Ingress Controller (NGINX)
-        ↓
-Ride Connect Application (3 Replicas)
+## CI/CD Pipeline
 
----
+```text
+Checkout
+   ↓
+Maven Build
+   ↓
+Docker Image Build
+   ↓
+Push to Docker Hub
+   ↓
+Create Kubernetes Secrets
+   ↓
+Deploy to Kubernetes
+   ↓
+Update Image
+   ↓
+Check Rollout
+```
 
-##  What This Project Demonstrates
+## Technologies
 
-- End-to-end CI/CD automation with Jenkins multistage pipeline
-- Multi-repository architecture (App repo + Platform repo separation)
-- Containerized application builds with Docker image tagging
-- Kubernetes deployment automation with rolling updates
-- Secret and ConfigMap management for environment configuration
-- Infrastructure as Code (IaC) using declarative YAML manifests
-- Production-style deployment workflow with high availability
-- Secure credential handling using Jenkins + Kubernetes Secrets
+| Technology    | Used For                  |
+| ------------- | ------------------------- |
+| Jenkins       | CI/CD                     |
+| Maven         | Java application build    |
+| Docker        | Container image           |
+| Docker Hub    | Image registry            |
+| Kubernetes    | Application deployment    |
+| NGINX Ingress | External access           |
+| MySQL         | Database                  |
+| ConfigMap     | Application configuration |
+| Secrets       | Credentials               |
+| PVC           | Persistent storage        |
 
----
-
-##  Image Tagging Strategy
-
-This project uses Jenkins BUILD_NUMBER for versioned deployments:
-
-- `maesh0004/ride-connect:<BUILD_NUMBER>`
-- Ensures traceability of each deployment
-- Enables rollback to specific builds using Kubernetes rollout history
-- `latest` tag may be used only for local/testing purposes
-
-
-## Project Structure
+## Repository Structure
 
 ```text
 platform-delivery/
 ├── docker/
 │   └── ride-connect/
 │       └── Dockerfile
+│
 ├── jenkins/
 │   ├── pipelines/
 │   │   └── ride-connect.Jenkinsfile
+│   │
 │   └── scripts/
 │       ├── build-image.sh
 │       ├── push-image.sh
-│       ├── deploy.sh
 │       ├── create-docker-secret.sh
-│       └── create-db-secret.sh
+│       ├── create-db-secret.sh
+│       └── deploy.sh
+│
 ├── k8s/
 │   ├── namespace.yaml
+│   ├── ride-connect-configmap.yaml
 │   ├── ride-connect-deployment.yaml
 │   ├── ride-connect-service.yaml
-│   ├── ride-connect-configmap.yaml
-│   └── ride-connect-ingress.yaml
+│   ├── ride-connect-ingress.yaml
+│   ├── mysql-statefulset.yaml
+│   └── mysql-service.yaml
+│
+├── .gitignore
+├── .gitattributes
 └── README.md
 ```
 
+## Kubernetes Resources
 
-## CI/CD Pipeline Flow
+The application is deployed in the `ride-connect` namespace.
 
-1. Clone Application Repository (GitHub - private repo)
-2. Build Application using Maven
-3. Build Docker Image (tagged with BUILD_NUMBER)
-4. Push Docker Image to Docker Hub
-5. Ensure Kubernetes Namespace exists
-6. Create Docker Registry Secret in Kubernetes
-7. Apply ConfigMap and Secrets
-8. Deploy application to Kubernetes cluster
-9. Trigger rolling update
-10. Verify deployment with health checks
+The Kubernetes setup includes:
 
+* **Namespace** — separates the application resources
+* **Deployment** — runs the application pods
+* **Service** — provides internal access to the application
+* **Ingress** — handles external HTTP access
+* **ConfigMap** — stores application configuration
+* **Secrets** — stores sensitive values
+* **StatefulSet** — runs MySQL
+* **PVC** — provides persistent storage for MySQL
 
-## Secrets Management
+## Deployment Flow
 
-This project uses a dual-layer secrets strategy:
+The Jenkins pipeline handles the deployment from start to finish:
 
-### Jenkins Credentials Store
-- GitHub authentication token
-- Docker Hub credentials
+1. Checkout the application source code
+2. Build the application using Maven
+3. Prepare the Docker build
+4. Build the Docker image
+5. Push the image to Docker Hub
+6. Create the required Kubernetes secrets
+7. Apply the Kubernetes manifests
+8. Update the application image
+9. Check the rollout status
 
-### Kubernetes Secrets
-- Database username and password
-- Injected into pods at runtime as environment variables
+## Requirements
 
----
+Before running the pipeline, you need:
 
-## Kubernetes Architecture
+* Jenkins
+* Docker
+* Docker Hub account
+* Kubernetes cluster
+* kubectl
+* Maven
+* NGINX Ingress Controller
+* Kubernetes StorageClass
 
-### Deployment
-- 3 replicas for high availability
-- RollingUpdate strategy (zero downtime)
-- Image updated dynamically via Jenkins using BUILD_NUMBER-based tagging strategy
+## Check the Deployment
 
-### Service
-- ClusterIP service for internal communication
-- Exposes application inside cluster
-
-### Ingress
-- NGINX Ingress Controller used for external access
-- Routes HTTP traffic to service
-
-### ConfigMap
-Environment configuration for Spring Boot:
-
-```yaml
-SERVER_PORT: "8080"
-SPRING_DATASOURCE_URL: jdbc:mysql://192.168.0.107:3306/ride_connect_db
-SPRING_JPA_SHOW_SQL: "true"
-SPRING_JPA_HIBERNATE_DDL_AUTO: update
-```
-
-## Deployment Verification
+After deployment, you can check the resources with:
 
 ```bash
 kubectl get pods -n ride-connect
 kubectl get svc -n ride-connect
-kubectl rollout status deployment/ride-connect-deployment -n ride-connect
-kubectl logs -l app=ride-connect -n ride-connect --tail=50
+kubectl get ingress -n ride-connect
+kubectl get pvc -n ride-connect
 ```
 
-## Rollback Strategy
+Check the application rollout:
 
 ```bash
-kubectl rollout undo deployment/ride-connect-deployment -n ride-connect
+kubectl rollout status deployment/ride-connect -n ride-connect
 ```
-
-## Key DevOps Principles Followed
-
-- Separation of application and infrastructure repositories  
-- Immutable container deployment strategy  
-- Declarative Kubernetes configuration (YAML-based IaC)  
-- Idempotent CI/CD operations using Jenkins  
-- Secure secrets handling with Jenkins + Kubernetes  
-- Automated rolling deployments with zero downtime  
-
----
-## DevOps Model
-
-This pipeline follows a hybrid CI/CD model combining:
-
-- Jenkins as CI/CD orchestration engine  
-- Kubernetes for declarative infrastructure management  
-- Docker for immutable container packaging  
-
 
 ## Summary
 
-This project demonstrates a real-world CI/CD pipeline design commonly used in enterprise DevOps environments.
-
-- Application code is maintained in a separate repository  
-- This repository manages CI/CD and deployment automation  
-- Jenkins acts as the CI/CD orchestration layer  
-- Kubernetes handles deployment, scaling, and reliability  
-
+This project is a practical example of using Jenkins, Docker, and Kubernetes together to build and deploy a Java application. It covers the main parts of a basic DevOps delivery process: build, containerize, push, deploy, and verify.
