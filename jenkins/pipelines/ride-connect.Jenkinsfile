@@ -7,6 +7,19 @@ pipeline {
         maven 'maven-3.9.16'
     }
 
+    options {
+        disableConcurrentBuilds(abortPrevious: true)
+
+        timeout(time: 30, unit: 'MINUTES')
+
+        timestamps()
+
+        buildDiscarder(logRotator(
+            numToKeepStr: '15',
+            artifactNumToKeepStr: '5'
+        ))
+    }
+
     environment {
         APP_REPO = "https://github.com/Maesh0004/RideConnect.git"
 
@@ -57,11 +70,13 @@ pipeline {
 
         stage("Push Docker Image") {
             steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'dockerhub-creds',
-                    usernameVariable: 'DOCKER_USER',
-                    passwordVariable: 'DOCKER_PASS'
-                )]) {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-creds',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )
+                ]) {
                     sh "./jenkins/scripts/push-image.sh ${REGISTRY} ${IMAGE_NAME} ${BUILD_NUMBER}"
                 }
             }
@@ -99,11 +114,13 @@ pipeline {
 
         stage("Create Docker Pull Secret") {
             steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'dockerhub-creds',
-                    usernameVariable: 'DOCKER_USER',
-                    passwordVariable: 'DOCKER_PASS'
-                )]) {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-creds',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )
+                ]) {
                     sh "./jenkins/scripts/create-docker-secret.sh ${NAMESPACE}"
                 }
             }
@@ -112,6 +129,18 @@ pipeline {
         stage("Deploy to Kubernetes") {
             steps {
                 sh "./jenkins/scripts/deploy.sh ${NAMESPACE} ${DEPLOYMENT} ${REGISTRY} ${IMAGE_NAME} ${BUILD_NUMBER}"
+            }
+
+            post {
+                failure {
+                    echo "Kubernetes deployment failed. Collecting diagnostics..."
+
+                    sh "kubectl get pods -n ${NAMESPACE} -o wide || true"
+
+                    sh "kubectl get events -n ${NAMESPACE} --sort-by=.lastTimestamp || true"
+
+                    sh "kubectl describe deployment ${DEPLOYMENT} -n ${NAMESPACE} || true"
+                }
             }
         }
     }
@@ -123,9 +152,7 @@ pipeline {
         }
 
         failure {
-            echo "Deployment Failed"
-            sh "kubectl get pods -n ${NAMESPACE}"
-            sh "kubectl get events -n ${NAMESPACE} --sort-by=.lastTimestamp"
+            echo "Pipeline Failed"
         }
 
         always {
