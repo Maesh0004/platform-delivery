@@ -2,7 +2,7 @@
 
 A DevOps project that automates the build and deployment of a Java application using **Jenkins, Docker, and Kubernetes**.
 
-The pipeline builds the application, creates a Docker image, pushes it to Docker Hub, and deploys it to a Kubernetes cluster.
+The pipeline builds and scans the application, creates and scans a Docker image, pushes it to Docker Hub, and deploys it to a Kubernetes cluster.
 
 ## Project Overview
 
@@ -50,7 +50,11 @@ Checkout
    ↓
 Maven Build
    ↓
+SonarQube Scan and Quality Gate
+   ↓
 Docker Image Build
+   ↓
+Trivy Image Scan
    ↓
 Push to Docker Hub
    ↓
@@ -69,8 +73,10 @@ Check Rollout
 | ------------- | ------------------------- |
 | Jenkins       | CI/CD                     |
 | Maven         | Java application build    |
+| SonarQube     | Source code quality       |
 | Docker        | Container image           |
 | Docker Hub    | Image registry            |
+| Trivy         | Image vulnerability scan  |
 | Kubernetes    | Application deployment    |
 | NGINX Ingress | External access           |
 | MySQL         | Database                  |
@@ -150,6 +156,9 @@ Before running the pipeline, you need:
 * Kubernetes cluster
 * kubectl
 * Maven
+* Trivy installed on the Jenkins agent
+* SonarQube server configured in Jenkins as `sonarqube-server`
+* Jenkins SonarQube Scanner plugin installed
 * NGINX Ingress Controller
 * Kubernetes StorageClass
 

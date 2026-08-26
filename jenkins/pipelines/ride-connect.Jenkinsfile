@@ -28,6 +28,10 @@ pipeline {
 
         NAMESPACE = "ride-connect"
         DEPLOYMENT = "ride-connect-deployment"
+
+        SONAR_PROJECT_KEY = "ride-connect"
+
+        SONAR_MAVEN_PLUGIN_VERSION = "5.7.0.6970"
     }
 
     stages {
@@ -42,17 +46,51 @@ pipeline {
             }
         }
 
-        stage("Build Application") {
+        stage("Build") {
             steps {
                 dir("RideConnect") {
-                    sh "mvn clean package"
+                    sh "mvn clean verify"
+                }
+            }
+        }
+
+        stage("SonarQube Scan") {
+            steps {
+                dir("RideConnect") {
+                    withCredentials([
+                        string(
+                            credentialsId: 'sonarqube-token',
+                            variable: 'SONAR_TOKEN'
+                        )
+                    ]) {
+                        withSonarQubeEnv("sonarqube-server") {
+                            sh '''
+                                mvn org.sonarsource.scanner.maven:sonar-maven-plugin:${SONAR_MAVEN_PLUGIN_VERSION}:sonar \
+                                    -Dsonar.projectKey="${SONAR_PROJECT_KEY}" \
+                                    -Dsonar.sources=src/main/java \
+                                    -Dsonar.tests=src/test/java \
+                                    -Dsonar.java.binaries=target/classes \
+                                    -Dsonar.java.test.binaries=target/test-classes \
+                                    -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
+                                    -Dsonar.token="$SONAR_TOKEN"
+                            '''
+                        }
+                    }
+                }
+            }
+        }
+
+        stage("SonarQube Quality Gate") {
+            steps {
+                timeout(time: 10, unit: "MINUTES") {
+                    waitForQualityGate abortPipeline: true
                 }
             }
         }
 
         stage("Prepare Docker Context") {
             steps {
-                sh "cp RideConnect/target/*.jar docker/ride-connect/"
+                sh "cp RideConnect/target/rideconnect.jar docker/ride-connect/"
             }
         }
 
@@ -65,6 +103,23 @@ pipeline {
         stage("Build Docker Image") {
             steps {
                 sh "./jenkins/scripts/build-image.sh ${REGISTRY} ${IMAGE_NAME} ${BUILD_NUMBER}"
+            }
+        }
+
+        stage("Trivy Image Scan") {
+            steps {
+                script {
+                    def trivyStatus = sh(
+                        script: "trivy image --no-progress --ignore-unfixed --exit-code 1 --format json --output trivy-${IMAGE_NAME}-${BUILD_NUMBER}.json --severity HIGH,CRITICAL ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER}",
+                        returnStatus: true
+                    )
+
+                    archiveArtifacts artifacts: "trivy-${IMAGE_NAME}-${BUILD_NUMBER}.json", fingerprint: true
+
+                    if (trivyStatus != 0) {
+                        error "Trivy found HIGH or CRITICAL vulnerabilities"
+                    }
+                }
             }
         }
 

@@ -2,7 +2,7 @@ FROM eclipse-temurin:21-jre-jammy
 
 WORKDIR /app
 
-COPY *.jar /app/app.jar
+COPY rideconnect.jar /app/app.jar
 
 EXPOSE 8080
 
