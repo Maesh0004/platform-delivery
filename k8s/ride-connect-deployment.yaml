@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: ride-connect-deployment
+  namespace: ride-connect
+
+spec:
+  replicas: 3
+
+  selector:
+    matchLabels:
+      app: ride-connect
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+
+  template:
+    metadata:
+      labels:
+        app: ride-connect
+
+    spec:
+      containers:
+        - name: ride-connect
+          image: maesh0004/ride-connect
+          imagePullPolicy: Always
+
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: ride-connect-configmap
+            - secretRef:
+                name: ride-connect-secret
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 10
+
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 120
+            periodSeconds: 20
+
+      imagePullSecrets:
+        - name: dockerhub-secret
