@@ -1,6 +1,6 @@
 # Default values for the ride-connect chart.
 # This file is the single source of truth for the deployment.
-# Override per environment with additional values files (values-dev.yaml, values-prod.yaml).
+# To deploy another environment later, add a values-<env>.yaml file with the overrides.
 
 # -- Override the chart name used in resource names
 nameOverride: ""

@@ -60,7 +60,7 @@ Trivy Image Scan
    ↓
 Push to Docker Hub
    ↓
-Create Kubernetes Secrets
+Prepare Environment (namespace + secrets)
    ↓
 Helm Lint
    ↓
@@ -120,9 +120,8 @@ platform-delivery/
 │   └── scripts/
 │       ├── build-image.sh
 │       ├── push-image.sh
-│       ├── helm-deploy.sh
-│       ├── create-docker-secret.sh
-│       └── create-db-secret.sh
+│       ├── prepare-environment.sh
+│       └── deploy-chart.sh
 │
 ├── .gitignore
 ├── .gitattributes
@@ -223,7 +222,7 @@ The Jenkins pipeline handles the deployment from start to finish:
 2. Build the application with Maven and pass the SonarQube quality gate
 3. Build the Docker image and scan it with Trivy
 4. Push the image to Docker Hub
-5. Create the required Kubernetes secrets
+5. Prepare the environment (create the namespace and the required secrets)
 6. `helm lint` the chart
 7. `helm template` to render and archive the manifests
 8. `helm upgrade --install` the chart, using the build number as the image tag
