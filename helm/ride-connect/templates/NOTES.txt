@@ -1,0 +1,29 @@
+RideConnect has been deployed to namespace {{ .Release.Namespace }}.
+
+Application
+  Release:    {{ .Release.Name }}
+  Deployment: {{ include "ride-connect.fullname" . }}
+  Image:      {{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}
+  Replicas:   {{ .Values.replicaCount }}
+{{- if .Values.ingress.enabled }}
+  URL:        http://{{ .Values.ingress.host }}{{ .Values.ingress.path }}
+{{- end }}
+{{- if .Values.mysql.enabled }}
+
+MySQL
+  Service:    {{ .Values.mysql.name }}:{{ .Values.mysql.port }}
+  Database:   {{ .Values.mysql.database }}
+{{- end }}
+
+Check the rollout
+
+  kubectl get pods -n {{ .Release.Namespace }}
+  kubectl rollout status deployment/{{ include "ride-connect.fullname" . }} -n {{ .Release.Namespace }}
+
+Secrets are created by the CI pipeline, not by this chart
+
+  {{ .Values.appSecretName }}
+  {{ .Values.mysql.secretName }}
+  {{- range .Values.imagePullSecrets }}
+  {{ .name }}
+  {{- end }}

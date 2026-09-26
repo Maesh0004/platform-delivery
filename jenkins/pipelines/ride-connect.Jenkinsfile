@@ -27,7 +27,8 @@ pipeline {
         IMAGE_NAME = "ride-connect"
 
         NAMESPACE = "ride-connect"
-        DEPLOYMENT = "ride-connect-deployment"
+        RELEASE = "ride-connect"
+        CHART = "helm/ride-connect"
 
         SONAR_PROJECT_KEY = "ride-connect"
 
@@ -137,18 +138,6 @@ pipeline {
             }
         }
 
-        stage("Provision Namespace") {
-            steps {
-                sh "kubectl apply -f k8s/namespace.yaml"
-            }
-        }
-
-        stage("Apply ConfigMap") {
-            steps {
-                sh "kubectl apply -f k8s/ride-connect-configmap.yaml"
-            }
-        }
-
         stage("Create DB Secret") {
             steps {
                 withCredentials([
@@ -181,20 +170,38 @@ pipeline {
             }
         }
 
-        stage("Deploy to Kubernetes") {
+        stage("Helm Lint") {
             steps {
-                sh "./jenkins/scripts/deploy.sh ${NAMESPACE} ${DEPLOYMENT} ${REGISTRY} ${IMAGE_NAME} ${BUILD_NUMBER}"
+                sh "helm lint ${CHART}"
+            }
+        }
+
+        stage("Helm Template") {
+            steps {
+                sh "helm template ${RELEASE} ${CHART} --namespace ${NAMESPACE} > rendered-manifests.yaml"
+
+                archiveArtifacts artifacts: "rendered-manifests.yaml", fingerprint: true
+            }
+        }
+
+        stage("Deploy with Helm") {
+            steps {
+                sh "./jenkins/scripts/helm-deploy.sh ${RELEASE} ${CHART} ${NAMESPACE} ${REGISTRY} ${IMAGE_NAME} ${BUILD_NUMBER}"
             }
 
             post {
                 failure {
-                    echo "Kubernetes deployment failed. Collecting diagnostics..."
+                    echo "Helm deployment failed. Collecting diagnostics..."
+
+                    sh "helm status ${RELEASE} -n ${NAMESPACE} || true"
+
+                    sh "helm history ${RELEASE} -n ${NAMESPACE} || true"
 
                     sh "kubectl get pods -n ${NAMESPACE} -o wide || true"
 
                     sh "kubectl get events -n ${NAMESPACE} --sort-by=.lastTimestamp || true"
 
-                    sh "kubectl describe deployment ${DEPLOYMENT} -n ${NAMESPACE} || true"
+                    sh "kubectl describe deployment ${RELEASE} -n ${NAMESPACE} || true"
                 }
             }
         }

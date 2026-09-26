@@ -1,0 +1,16 @@
+{{- if .Values.mysql.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.mysql.name }}
+  labels:
+    {{- include "ride-connect.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mysql
+spec:
+  selector:
+    {{- include "ride-connect.mysqlSelectorLabels" . | nindent 4 }}
+  ports:
+    - name: mysql
+      port: {{ .Values.mysql.port }}
+      targetPort: {{ .Values.mysql.port }}
+{{- end }}
