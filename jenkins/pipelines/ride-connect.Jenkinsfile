@@ -1,3 +1,11 @@
+// ---------------------------------------------------------------------------
+// RideConnect CI/CD pipeline
+//
+// Builds the application, runs the SonarQube quality gate and a Trivy image
+// scan, pushes the image to Docker Hub, prepares the cluster (namespace and
+// secrets) and deploys the Helm chart to Kubernetes.
+// ---------------------------------------------------------------------------
+
 pipeline {
 
     agent { label 'jenkins-agent-01' }
@@ -26,8 +34,10 @@ pipeline {
         REGISTRY = "maesh0004"
         IMAGE_NAME = "ride-connect"
 
+        // Helm deployment target
         NAMESPACE = "ride-connect"
-        DEPLOYMENT = "ride-connect-deployment"
+        RELEASE = "ride-connect"
+        CHART = "helm/ride-connect"
 
         SONAR_PROJECT_KEY = "ride-connect"
 
@@ -102,10 +112,11 @@ pipeline {
 
         stage("Build Docker Image") {
             steps {
-                sh "./jenkins/scripts/build-image.sh ${REGISTRY} ${IMAGE_NAME} ${BUILD_NUMBER}"
+                sh "./jenkins/scripts/build-image.sh -r ${REGISTRY} -i ${IMAGE_NAME} -b ${BUILD_NUMBER}"
             }
         }
 
+        // Fail the build on HIGH/CRITICAL image vulnerabilities
         stage("Trivy Image Scan") {
             steps {
                 script {
@@ -132,24 +143,13 @@ pipeline {
                         passwordVariable: 'DOCKER_PASS'
                     )
                 ]) {
-                    sh "./jenkins/scripts/push-image.sh ${REGISTRY} ${IMAGE_NAME} ${BUILD_NUMBER}"
+                    sh "./jenkins/scripts/push-image.sh -r ${REGISTRY} -i ${IMAGE_NAME} -t ${BUILD_NUMBER}"
                 }
             }
         }
 
-        stage("Provision Namespace") {
-            steps {
-                sh "kubectl apply -f k8s/namespace.yaml"
-            }
-        }
-
-        stage("Apply ConfigMap") {
-            steps {
-                sh "kubectl apply -f k8s/ride-connect-configmap.yaml"
-            }
-        }
-
-        stage("Create DB Secret") {
+        // Create the namespace and the secrets the chart references
+        stage("Prepare Environment") {
             steps {
                 withCredentials([
                     usernamePassword(
@@ -160,41 +160,51 @@ pipeline {
                     string(
                         credentialsId: 'mysql-root-password',
                         variable: 'MYSQL_ROOT_PASSWORD'
-                    )
-                ]) {
-                    sh "./jenkins/scripts/create-db-secret.sh ${NAMESPACE}"
-                }
-            }
-        }
-
-        stage("Create Docker Pull Secret") {
-            steps {
-                withCredentials([
+                    ),
                     usernamePassword(
                         credentialsId: 'dockerhub-creds',
                         usernameVariable: 'DOCKER_USER',
                         passwordVariable: 'DOCKER_PASS'
                     )
                 ]) {
-                    sh "./jenkins/scripts/create-docker-secret.sh ${NAMESPACE}"
+                    sh "./jenkins/scripts/prepare-environment.sh -n ${NAMESPACE}"
                 }
             }
         }
 
-        stage("Deploy to Kubernetes") {
+        stage("Helm Lint") {
             steps {
-                sh "./jenkins/scripts/deploy.sh ${NAMESPACE} ${DEPLOYMENT} ${REGISTRY} ${IMAGE_NAME} ${BUILD_NUMBER}"
+                sh "helm lint ${CHART}"
+            }
+        }
+
+        // Render the manifests for review without touching the cluster
+        stage("Helm Template") {
+            steps {
+                sh "helm template ${RELEASE} ${CHART} --namespace ${NAMESPACE} > rendered-manifests.yaml"
+
+                archiveArtifacts artifacts: "rendered-manifests.yaml", fingerprint: true
+            }
+        }
+
+        stage("Deploy with Helm") {
+            steps {
+                sh "./jenkins/scripts/deploy-chart.sh -r ${RELEASE} -c ${CHART} -n ${NAMESPACE} -g ${REGISTRY} -i ${IMAGE_NAME} -t ${BUILD_NUMBER}"
             }
 
             post {
                 failure {
-                    echo "Kubernetes deployment failed. Collecting diagnostics..."
+                    echo "Helm deployment failed. Collecting diagnostics..."
+
+                    sh "helm status ${RELEASE} -n ${NAMESPACE} || true"
+
+                    sh "helm history ${RELEASE} -n ${NAMESPACE} || true"
 
                     sh "kubectl get pods -n ${NAMESPACE} -o wide || true"
 
                     sh "kubectl get events -n ${NAMESPACE} --sort-by=.lastTimestamp || true"
 
-                    sh "kubectl describe deployment ${DEPLOYMENT} -n ${NAMESPACE} || true"
+                    sh "kubectl describe deployment ${RELEASE} -n ${NAMESPACE} || true"
                 }
             }
         }

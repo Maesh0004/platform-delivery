@@ -1,0 +1,123 @@
+# Default values for the ride-connect chart.
+# This file is the single source of truth for the deployment.
+# To deploy another environment later, add a values-<env>.yaml file with the overrides.
+
+# -- Override the chart name used in resource names
+nameOverride: ""
+# -- Override the fully qualified release name used in resource names
+fullnameOverride: ""
+
+image:
+  # -- Container image repository
+  repository: maesh0004/ride-connect
+  # -- Container image tag (the Jenkins pipeline sets this to the build number)
+  tag: latest
+  # -- Container image pull policy
+  pullPolicy: Always
+
+# -- Existing image pull secret used to pull the application image
+imagePullSecrets:
+  - name: dockerhub-secret
+
+# -- Number of application replicas
+replicaCount: 3
+
+# -- Rolling update strategy
+rollingUpdate:
+  maxUnavailable: 1
+  maxSurge: 1
+
+serviceAccount:
+  # -- Create a dedicated ServiceAccount for the application
+  create: false
+  # -- ServiceAccount name (defaults to the fullname when create is true)
+  name: ""
+
+# -- Extra labels for all pods
+podLabels: {}
+# -- Extra annotations for all pods
+podAnnotations: {}
+
+service:
+  # -- Service type
+  type: ClusterIP
+  # -- Service port
+  port: 8080
+  # -- Container / target port
+  targetPort: 8080
+
+ingress:
+  # -- Enable the Ingress resource
+  enabled: true
+  # -- Ingress class name
+  className: nginx
+  # -- Additional Ingress annotations
+  annotations: {}
+  # -- Ingress host
+  host: rideconnect.local
+  # -- Ingress path
+  path: /
+  # -- Ingress path type
+  pathType: Prefix
+
+# -- Application configuration consumed as environment variables via a ConfigMap
+config:
+  SERVER_PORT: "8080"
+  SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/ride_connect_db
+  SPRING_JPA_SHOW_SQL: "true"
+  SPRING_JPA_HIBERNATE_DDL_AUTO: update
+  SPRING_DATA_WEB_PAGEABLE_SERIALIZATION_MODE: via-dto
+
+# -- Name of the pre-created Secret holding SPRING_DATASOURCE_USERNAME / SPRING_DATASOURCE_PASSWORD
+#    Created by the Jenkins pipeline and intentionally kept out of git.
+appSecretName: ride-connect-secret
+
+# -- Pod resource requests/limits
+resources: {}
+
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 60
+  periodSeconds: 10
+
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 120
+  periodSeconds: 20
+
+# ---------------------------------------------------------------------------
+# MySQL
+# ---------------------------------------------------------------------------
+mysql:
+  # -- Deploy MySQL alongside the application
+  enabled: true
+  # -- Resource name for the MySQL StatefulSet and Service.
+  #    Must stay "mysql" because the application JDBC URL points at this host.
+  name: mysql
+  # -- MySQL image
+  image: mysql:8.0
+  imagePullPolicy: IfNotPresent
+  # -- Number of MySQL replicas
+  replicas: 1
+  # -- MySQL port
+  port: 3306
+  # -- Database created on first start
+  database: ride_connect_db
+  # -- Pre-created Secret holding MYSQL_ROOT_PASSWORD / MYSQL_USER / MYSQL_PASSWORD
+  secretName: mysql-secret
+  persistence:
+    # -- Enable persistent storage via volumeClaimTemplates (emptyDir when false)
+    enabled: true
+    # -- StorageClass name (leave empty to use the cluster default)
+    storageClass: local-path
+    # -- Access mode for the PVC
+    accessMode: ReadWriteOnce
+    # -- Requested storage size
+    size: 5Gi
+  readinessProbe:
+    initialDelaySeconds: 20
+    periodSeconds: 10
+  livenessProbe:
+    initialDelaySeconds: 40
+    periodSeconds: 10
+  resources: {}
